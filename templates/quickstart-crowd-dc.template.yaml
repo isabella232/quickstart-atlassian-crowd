@@ -989,9 +989,9 @@ Resources:
 
                 ### DYLAN ANSIBLE PINNING
                 mkdir -p $mountpoint
-                mkdir -p $dc_deployments_automation_root
-                mount -t efs defaults,_netdev "${ElasticFileSystem}":/ $mountpoint
                 chmod 0755 $mountpoint
+                mkdir -p $dc_deployments_automation_root
+                mount -t efs -o defaults,_netdev "${ElasticFileSystem}":/ $mountpoint
 
                 if [[ ! -d $mountpoint/shared/dc-deployments-automation ]]; then
                   echo "CLONING REPO!"
