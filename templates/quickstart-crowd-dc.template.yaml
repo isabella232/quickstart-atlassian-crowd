@@ -976,6 +976,7 @@ Resources:
                 mountpoint=/media/atl
 
                 yum install -y git
+                yum install -y amazon-efs-utils
                 if [[ ! -z "$key_name" ]]; then
                     # Ensure awscli is up to date
                     yum install -y awscli jq
