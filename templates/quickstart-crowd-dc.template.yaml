@@ -991,11 +991,9 @@ Resources:
                 yum install -y amazon-efs-utils
                 mkdir -p $mountpoint
                 chmod 0755 $mountpoint
-                mkdir -p $dc_deployments_automation_root
                 mount -t efs -o defaults,_netdev "${ElasticFileSystem}":/ $mountpoint
 
                 if [[ ! -d $mountpoint/shared/dc-deployments-automation ]]; then
-                  echo "CLONING REPO!"
                   mkdir -p $mountpoint/shared/dc-deployments-automation
                   git clone "${DeploymentAutomationRepository}" -b "${DeploymentAutomationBranch}" $mountpoint/shared/dc-deployments-automation
                 fi
