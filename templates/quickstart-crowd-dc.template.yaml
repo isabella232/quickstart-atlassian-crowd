@@ -976,7 +976,6 @@ Resources:
                 mountpoint=/media/atl
 
                 yum install -y git
-                yum install -y amazon-efs-utils
                 if [[ ! -z "$key_name" ]]; then
                     # Ensure awscli is up to date
                     yum install -y awscli jq
@@ -989,6 +988,7 @@ Resources:
                 fi
 
                 ### DYLAN ANSIBLE PINNING
+                yum install -y amazon-efs-utils
                 mkdir -p $mountpoint
                 chmod 0755 $mountpoint
                 mkdir -p $dc_deployments_automation_root
