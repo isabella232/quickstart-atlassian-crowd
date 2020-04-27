@@ -991,8 +991,10 @@ Resources:
                 mkdir -p $mountpoint
                 mkdir -p $dc_deployments_automation_root
                 mount -t efs defaults,_netdev "${ElasticFileSystem}":/ $mountpoint
+                chmod 0755 $mountpoint
 
                 if [[ ! -d $mountpoint/shared/dc-deployments-automation ]]; then
+                  echo "CLONING REPO!"
                   mkdir -p $mountpoint/shared/dc-deployments-automation
                   git clone "${DeploymentAutomationRepository}" -b "${DeploymentAutomationBranch}" $mountpoint/shared/dc-deployments-automation
                 fi
