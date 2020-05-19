@@ -22,6 +22,11 @@ Metadata:
           - DeploymentAutomationCustomParams
           - DeploymentAutomationKeyName
       - Label:
+          default: Encryption
+        Parameters:
+          - EnableEncryption
+          - EncryptionKey
+      - Label:
           default: Database
         Parameters:
           - DBInstanceClass
@@ -30,7 +35,6 @@ Metadata:
           - DBMultiAZ
           - DBPassword
           - DBStorage
-          - DBStorageEncrypted
           - DBStorageType
       - Label:
           default: Networking
@@ -95,8 +99,10 @@ Metadata:
         default: Application user database password *
       DBStorage:
         default: Database storage
-      DBStorageEncrypted:
-        default: Database encryption
+      EnableEncryption:
+        default: Encryption of storage devices (RDS, EFS and EBS)
+      EncryptionKey:
+        default: The encryption Key ARN (leave blank if you would like a key auto generated)
       DBStorageType:
         default: Database storage type
       DeploymentAutomationRepository:
@@ -160,6 +166,7 @@ Parameters:
     Type: String
     MinLength: 9
     MaxLength: 18
+    Default: '0.0.0.0/0'
   CloudWatchIntegration:
     Default: "Metrics and Logs"
     Type: String
@@ -191,9 +198,9 @@ Parameters:
       - d2.4xlarge
       - d2.8xlarge
       - h1.2xlarge
-      - h1.4xlarge
-      - h1.8xlarge
-      - h1.16xlarge
+      - h1.4xlarge 
+      - h1.8xlarge #NO
+      - h1.16xlarge #NO
       - i3.large
       - i3.xlarge
       - i3.2xlarge
@@ -333,6 +340,7 @@ Parameters:
     MaxLength: 128
     MinLength: 8
     Type: String
+    Default: 'f925dO1ry_'
   DBMultiAZ:
     Description: Whether to provision a multi-AZ RDS instance.
     Default: "true"
@@ -351,16 +359,22 @@ Parameters:
     MaxLength: 128
     NoEcho: true
     Type: String
+    Default: 'f925dO1ry_'
   DBStorage:
     Default: 200
     Description: Database allocated storage size, in gigabytes (GB). If you choose Provisioned IOPS, storage should be between 100 and 6144.
     Type: Number
-  DBStorageEncrypted:
-    Default: "false"
+  EnableEncryption:
+    Default: "true"
     AllowedValues:
       - "true"
       - "false"
-    Description: Whether or not to encrypt the database
+    Description: Whether or not to encrypt the storage devices (RDS, EFS and EBS volumes)
+    Type: String
+  EncryptionKey:
+    Default: ''
+    AllowedPattern: '^arn:aws:kms:[\w\-]+:\d{12}:key\/[\w\-]+|^(?![\s\S])'
+    Description: Provide the KMS key ARN for a pre-generated encryption key. If this is provided, RDS and EFS will be encrypted at-rest using this key. If left blank one will be generated
     Type: String
   DBStorageType:
     Default: General Purpose (SSD)
@@ -476,7 +490,7 @@ Parameters:
     Description: The port number for Catalina to use when automatically redirecting a non-SSL connector actioning a redirect to a SSL URI
     Type: Number
   QSS3BucketName:
-    Default: 'aws-quickstart'
+    Default: 'dcd-214-stack-encryption'
     AllowedPattern: ^[0-9a-zA-Z]+([0-9a-zA-Z-]*[0-9a-zA-Z])*$
     ConstraintDescription: Quick Start bucket name can include numbers, lowercase
       letters, uppercase letters, and hyphens (-). It cannot start or end with a hyphen
@@ -512,14 +526,17 @@ Conditions:
     !Not [!Equals [!Ref TomcatContextPath, '']]
   UseCustomDnsName:
     !Not [!Equals [!Ref CustomDnsName, '']]
-  UseDatabaseEncryption:
-    !Equals [!Ref DBStorageEncrypted, true]
+  UseEncryption:
+    !Equals [!Ref EnableEncryption, true]
   UseHostedZone:
     !Not [!Equals [!Ref HostedZone, '']]
   UsePublicIp:
     !Equals [!Ref InternetFacingLoadBalancer, 'true']
   GovCloudCondition:
     !Equals [!Ref 'AWS::Region', 'us-gov-west-1']
+  GenerateEncryptionKey: !And
+    - !Equals [!Ref EncryptionKey, '']
+    - !Condition UseEncryption
 Mappings:
   AWSInstanceType2Arch:
     c4.large:
@@ -888,7 +905,7 @@ Resources:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       DesiredCapacity: !Ref ClusterNodeMin
-      LaunchConfigurationName: !Ref ClusterNodeLaunchConfig
+      LaunchConfigurationName: !Ref ClusterNodeLaunchTemplate
       MaxSize: !Ref ClusterNodeMax
       MinSize: !Ref ClusterNodeMin
       TargetGroupARNs: [!Ref MainTargetGroup]
@@ -910,12 +927,8 @@ Resources:
           Value: "TIMESTAMP: 2020-03-09T00:26:04Z"
           PropagateAtLaunch: true
 
-  ClusterNodeLaunchConfig:
-    Type: AWS::AutoScaling::LaunchConfiguration
-    DependsOn:
-      - EFSMountAz1
-      - EFSMountAz2
-      - AnsibleRepoPinSHA
+  ClusterNodeLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
     Metadata:
       Comment: ''
       AWS::CloudFormation::Init:
@@ -1030,45 +1043,61 @@ Resources:
               command: !Sub |
                 cd /opt/atlassian/dc-deployments-automation/ && ./bin/install-ansible && ./bin/ansible-with-atl-env inv/aws_node_local ${DeploymentAutomationPlaybook} /var/log/ansible-bootstrap.log
               ignoreErrors: true
-
     Properties:
-      AssociatePublicIpAddress: false
-      BlockDeviceMappings:
-        - DeviceName: /dev/xvda
-          Ebs:
-            VolumeSize: !Ref ClusterNodeVolumeSize
-        - DeviceName: /dev/xvdf
-          NoDevice: true
-      KeyName: !If
-        - KeyProvided
-        - !Ref KeyPairName
-        - Fn::ImportValue: !Sub "${ExportPrefix}DefaultKey"
-      IamInstanceProfile: !Ref ClusterNodeInstanceProfile
-      ImageId:
-        !FindInMap
+      LaunchTemplateData:
+        NetworkInterfaces:
+          - AssociatePublicIpAddress: false
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              Encrypted: !If
+                - UseEncryption
+                - "true"
+                - "false"
+              KmsKeyId: !If
+                - GenerateEncryptionKey
+                - !GetAtt GeneratedEncryptionKey.Arn
+                - !Ref EncryptionKey
+              VolumeSize: !Ref ClusterNodeVolumeSize
+          - DeviceName: /dev/xvdf
+            NoDevice: true
+        KeyName: !If
+          - KeyProvided
+          - !Ref KeyPairName
+          - Fn::ImportValue: !Sub "${ExportPrefix}DefaultKey"
+        IamInstanceProfile: !Ref ClusterNodeInstanceProfile
+        ImageId:
+          !FindInMap
           - AWSRegionArch2AMI
           - !Ref AWS::Region
           - !FindInMap
-              - AWSInstanceType2Arch
-              - !Ref ClusterNodeInstanceType
-              - Arch
-      InstanceType: !Ref ClusterNodeInstanceType
-      SecurityGroups: [!Ref SecurityGroup]
-      UserData:
-        Fn::Base64:
-          !Join
-          - ""
-          -
-            - "#!/bin/bash -xe\n"
-            - "yum update -y aws-cfn-bootstrap\n"
-            - !Sub ["/opt/aws/bin/cfn-init -v --stack ${StackName}", {StackName: !Ref "AWS::StackName"}]
-            - !Sub [" --resource ClusterNodeLaunchConfig --region ${Region}\n", {Region: !Ref "AWS::Region"}]
-            - !Sub ["/opt/aws/bin/cfn-signal -e $? --stack ${StackName}", {StackName: !Ref "AWS::StackName"}]
-            - !Sub [" --resource ClusterNodeLaunchConfig --region ${Region}", {Region: !Ref "AWS::Region"}]
+            - AWSInstanceType2Arch
+            - !Ref ClusterNodeInstanceType
+            - Arch
+        InstanceType: !Ref ClusterNodeInstanceType
+        SecurityGroups: [!Ref SecurityGroup]
+        UserData:
+          Fn::Base64:
+            !Join
+            - ""
+            - - "#!/bin/bash -xe\n"
+              - "yum update -y aws-cfn-bootstrap\n"
+              - !Sub ["/opt/aws/bin/cfn-init -v --stack ${StackName}", {StackName: !Ref "AWS::StackName"}]
+              - !Sub [" --resource ClusterNodeLaunchTemplate --region ${Region}\n", {Region: !Ref "AWS::Region"}]
+              - !Sub ["/opt/aws/bin/cfn-signal -e $? --stack ${StackName}", {StackName: !Ref "AWS::StackName"}]
+              - !Sub [" --resource ClusterNodeLaunchTemplate --region ${Region}", {Region: !Ref "AWS::Region"}]
   # Elastic file system
   ElasticFileSystem:
     Type: AWS::EFS::FileSystem
     Properties:
+      Encrypted: !If
+        - UseEncryption
+        - "true"
+        - "false"
+      KmsKeyId: !If
+        - GenerateEncryptionKey
+        - !GetAtt GeneratedEncryptionKey.Arn
+        - !Ref EncryptionKey
       FileSystemTags:
         - Key: Name
           Value: !Join [' ', [!Ref 'AWS::StackName', 'cluster shared-files']]
@@ -1127,7 +1156,11 @@ Resources:
         DBMasterUserPassword: !Ref DBMasterUserPassword
         DBMultiAZ: !Ref DBMultiAZ
         DBAllocatedStorage: !Ref DBStorage
-        DBStorageEncrypted: !Ref DBStorageEncrypted
+        DBStorageEncrypted: !Ref EnableEncryption
+        DBStorageEncryptionKey: !If 
+          - GenerateEncryptionKey
+          - !GetAtt GeneratedEncryptionKey.Arn
+          - !Ref EncryptionKey
         DBStorageType: !Ref DBStorageType
         ExportPrefix: !Ref ExportPrefix
         QSS3BucketName: !Ref QSS3BucketName
@@ -1318,8 +1351,8 @@ Resources:
       FromPort: -1
       ToPort: -1
       SourceSecurityGroupId: !Ref SecurityGroup
-  EncryptionKey:
-    Condition: UseDatabaseEncryption
+  GeneratedEncryptionKey:
+    Condition: GenerateEncryptionKey
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Type: AWS::KMS::Key
@@ -1342,12 +1375,12 @@ Resources:
           Value: "COMMIT: f4f6f23a003db564a2347d9fae9924edd95dbfa5"
         - Key: "atl:quickstart:timestamp"
           Value: "TIMESTAMP: 2020-03-09T00:26:04Z"
-  EncryptionKeyAlias:
-    Condition: UseDatabaseEncryption
+  GeneratedEncryptionKeyAlias:
+    Condition: GenerateEncryptionKey
     Type: AWS::KMS::Alias
     Properties:
       AliasName: !Sub "alias/${AWS::StackName}"
-      TargetKeyId: !Ref EncryptionKey
+      TargetKeyId: !Ref GeneratedEncryptionKey
   AnsibleRepoPinSHA:
     Type: AWS::SSM::Parameter
     Properties:
@@ -1409,10 +1442,13 @@ Outputs:
   DBEndpointAddress:
     Description: The Database Connection String
     Value: !GetAtt DB.Outputs.RDSEndPointAddress
-  DBEncryptionKey:
-    Condition: UseDatabaseEncryption
-    Description: The alias of the encryption key created for RDS
-    Value: !Ref EncryptionKeyAlias
+  StorageEncryptionKey:
+    Condition: UseEncryption
+    Description: The encryption key used for RDS and EFS encryption
+    Value: !If 
+      - GenerateEncryptionKey
+      - !Ref GeneratedEncryptionKey
+      - !Ref EncryptionKey
   EFSCname:
     Description: The cname of the EFS
     Value: !If
