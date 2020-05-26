@@ -1,5 +1,4 @@
----
-AWSTemplateFormatVersion: 2010-09-09
+WSTemplateFormatVersion: 2010-09-09
 Description: Atlassian Crowd Data Center QS(0037)
 Metadata:
   AWS::CloudFormation::Interface:
@@ -198,7 +197,7 @@ Parameters:
       - d2.4xlarge
       - d2.8xlarge
       - h1.2xlarge
-      - h1.4xlarge 
+      - h1.4xlarge
       - h1.8xlarge #NO
       - h1.16xlarge #NO
       - i3.large
@@ -490,7 +489,7 @@ Parameters:
     Description: The port number for Catalina to use when automatically redirecting a non-SSL connector actioning a redirect to a SSL URI
     Type: Number
   QSS3BucketName:
-    Default: 'dcd-214-stack-encryption'
+    Default: 'dcd-1004-encryption-at-rest'
     AllowedPattern: ^[0-9a-zA-Z]+([0-9a-zA-Z-]*[0-9a-zA-Z])*$
     ConstraintDescription: Quick Start bucket name can include numbers, lowercase
       letters, uppercase letters, and hyphens (-). It cannot start or end with a hyphen
@@ -903,9 +902,13 @@ Resources:
   # Crowd node config
   ClusterNodeGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
+    DependsOn:
+      - ClusterNodeLaunchTemplate
     Properties:
       DesiredCapacity: !Ref ClusterNodeMin
-      LaunchConfigurationName: !Ref ClusterNodeLaunchTemplate
+      LaunchTemplate:
+        LaunchTemplateId: !Ref 'ClusterNodeLaunchTemplate'
+        Version: !GetAtt 'ClusterNodeLaunchTemplate.LatestVersionNumber'
       MaxSize: !Ref ClusterNodeMax
       MinSize: !Ref ClusterNodeMin
       TargetGroupARNs: [!Ref MainTargetGroup]
@@ -929,6 +932,11 @@ Resources:
 
   ClusterNodeLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
+    DependsOn:
+      - EFSMountAz1
+      - EFSMountAz2
+      - AnsibleRepoPinSHA
+      - ClusterNodeInstanceProfile
     Metadata:
       Comment: ''
       AWS::CloudFormation::Init:
@@ -960,12 +968,12 @@ Resources:
                     - !If [DoSSL, "ATL_SSL_PROXY=true", !Ref "AWS::NoValue"]
                     - !Sub ["ATL_AWS_STACK_NAME=${StackName}", StackName: !Ref "AWS::StackName"]
                     - !Sub ["ATL_CATALINA_OPTS=\"${CatalinaOpts} ${MailOpts}\"", { CatalinaOpts: !Ref CatalinaOpts, MailOpts: !If [DisableMail, '-Datlassian.mail.senddisabled=true -Datlassian.mail.fetchdisabled=true -Datlassian.mail.popdisabled=true', ''] }]
-                    - !Sub ["ATL_DB_HOST=${DBEndpointAddress}", DBEndpointAddress: !GetAtt DB.Outputs.RDSEndPointAddress]
+                    #                    - !Sub ["ATL_DB_HOST=${DBEndpointAddress}", DBEndpointAddress: !GetAtt DB.Outputs.RDSEndPointAddress]
                     - !Sub ["ATL_DB_ROOT_PASSWORD='${DBMasterUserPassword}'", DBMasterUserPassword: !Ref DBMasterUserPassword]
-                    - !Sub ["ATL_DB_PORT=${DBEndpointPort}", DBEndpointPort: !GetAtt DB.Outputs.RDSEndPointPort]
+                    #                    - !Sub ["ATL_DB_PORT=${DBEndpointPort}", DBEndpointPort: !GetAtt DB.Outputs.RDSEndPointPort]
                     - !Sub ["ATL_HOSTEDZONE=${HostedZone}", HostedZone: !Ref HostedZone]
                     - !Sub ["ATL_JDBC_PASSWORD='${DBPassword}'", DBPassword: !Ref DBPassword]
-                    - !Sub ["ATL_JDBC_URL=jdbc:postgresql://${DBEndpointAddress}:${DBEndpointPort}/crowd?targetServerType=master", { DBEndpointAddress: !GetAtt DB.Outputs.RDSEndPointAddress, DBEndpointPort: !GetAtt DB.Outputs.RDSEndPointPort }]
+                    #                    - !Sub ["ATL_JDBC_URL=jdbc:postgresql://${DBEndpointAddress}:${DBEndpointPort}/crowd?targetServerType=master", { DBEndpointAddress: !GetAtt DB.Outputs.RDSEndPointAddress, DBEndpointPort: !GetAtt DB.Outputs.RDSEndPointPort }]
                     - !Sub ["ATL_JVM_HEAP=${AtlJvmHeap}", AtlJvmHeap: !If [OverrideHeap, !Ref 'JvmHeapOverride', !FindInMap [AWSInstanceType2Arch, !Ref ClusterNodeInstanceType, Jvmheap]]]
                     - !Sub ["ATL_PROXY_NAME=${AtlProxyName}", AtlProxyName: !If [UseCustomDnsName, !Ref CustomDnsName, !If [UseHostedZone, !Ref LoadBalancerCname, !GetAtt LoadBalancer.DNSName]]]
                     - !Sub ["ATL_TOMCAT_ACCEPTCOUNT=${TomcatAcceptCount}", TomcatAcceptCount: !Ref TomcatAcceptCount]
@@ -1044,6 +1052,7 @@ Resources:
                 cd /opt/atlassian/dc-deployments-automation/ && ./bin/install-ansible && ./bin/ansible-with-atl-env inv/aws_node_local ${DeploymentAutomationPlaybook} /var/log/ansible-bootstrap.log
               ignoreErrors: true
     Properties:
+      LaunchTemplateName: !Sub '${AWS::StackName}-CrowdLaunchTemplate'
       LaunchTemplateData:
         NetworkInterfaces:
           - AssociatePublicIpAddress: false
@@ -1065,7 +1074,8 @@ Resources:
           - KeyProvided
           - !Ref KeyPairName
           - Fn::ImportValue: !Sub "${ExportPrefix}DefaultKey"
-        IamInstanceProfile: !Ref ClusterNodeInstanceProfile
+        IamInstanceProfile:
+          Name: ClusterNodeInstanceProfile
         ImageId:
           !FindInMap
           - AWSRegionArch2AMI
@@ -1075,7 +1085,7 @@ Resources:
             - !Ref ClusterNodeInstanceType
             - Arch
         InstanceType: !Ref ClusterNodeInstanceType
-        SecurityGroups: [!Ref SecurityGroup]
+        SecurityGroupIds: [!Ref SecurityGroup]
         UserData:
           Fn::Base64:
             !Join
@@ -1114,10 +1124,10 @@ Resources:
       FileSystemId: !Ref ElasticFileSystem
       SecurityGroups: [!Ref SecurityGroup]
       SubnetId: !Select
-      - 0
-      - !Split
-           - ","
-           - Fn::ImportValue: !Sub "${ExportPrefix}PriNets"
+        - 0
+        - !Split
+          - ","
+          - Fn::ImportValue: !Sub "${ExportPrefix}PriNets"
   EFSMountAz2:
     Type: AWS::EFS::MountTarget
     Properties:
@@ -1140,42 +1150,42 @@ Resources:
       ResourceRecords:
         - !Join ['.', [!Ref ElasticFileSystem, 'efs', !Ref 'AWS::Region', 'amazonaws.com.']]
   # Database
-  DB:
-    Type: AWS::CloudFormation::Stack
-    Properties:
-      TemplateURL: !Sub
-        - https://${QSS3BucketName}.${QSS3Region}.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-atlassian-services/templates/quickstart-database-for-atlassian-services.yaml
-        - QSS3Region: !If ["GovCloudCondition", "s3-us-gov-west-1", "s3"]
-      Parameters:
-        DatabaseImplementation: "PostgreSQL"
-        DBSecurityGroup: !Ref SecurityGroup
-        DBAutoMinorVersionUpgrade: "true"
-        DBBackupRetentionPeriod: "1"
-        DBInstanceClass: !Ref DBInstanceClass
-        DBIops: !Ref DBIops
-        DBMasterUserPassword: !Ref DBMasterUserPassword
-        DBMultiAZ: !Ref DBMultiAZ
-        DBAllocatedStorage: !Ref DBStorage
-        DBStorageEncrypted: !Ref EnableEncryption
-        DBStorageEncryptionKey: !If 
-          - GenerateEncryptionKey
-          - !GetAtt GeneratedEncryptionKey.Arn
-          - !Ref EncryptionKey
-        DBStorageType: !Ref DBStorageType
-        ExportPrefix: !Ref ExportPrefix
-        QSS3BucketName: !Ref QSS3BucketName
-        QSS3KeyPrefix: !Ref QSS3KeyPrefix
-  DBCname:
-    Condition: UseHostedZone
-    Type: AWS::Route53::RecordSet
-    Properties:
-      HostedZoneName: !Ref HostedZone
-      Comment: Route53 cname for the RDS
-      Name: !Join ['.', [!Ref 'AWS::StackName', 'db', !Ref 'HostedZone']]
-      Type: CNAME
-      TTL: '900'
-      ResourceRecords:
-        - !GetAtt DB.Outputs.RDSEndPointAddress
+  #  DB:
+  #    Type: AWS::CloudFormation::Stack
+  #    Properties:
+  #      TemplateURL: !Sub
+  #        - https://${QSS3BucketName}.${QSS3Region}.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-atlassian-services/templates/quickstart-database-for-atlassian-services.yaml
+  #        - QSS3Region: !If ["GovCloudCondition", "s3-us-gov-west-1", "s3"]
+  #      Parameters:
+  #        DatabaseImplementation: "PostgreSQL"
+  #        DBSecurityGroup: !Ref SecurityGroup
+  #        DBAutoMinorVersionUpgrade: "true"
+  #        DBBackupRetentionPeriod: "1"
+  #        DBInstanceClass: !Ref DBInstanceClass
+  #        DBIops: !Ref DBIops
+  #        DBMasterUserPassword: !Ref DBMasterUserPassword
+  #        DBMultiAZ: !Ref DBMultiAZ
+  #        DBAllocatedStorage: !Ref DBStorage
+  #        DBStorageEncrypted: !Ref EnableEncryption
+  #        DBStorageEncryptionKey: !If 
+  #          - GenerateEncryptionKey
+  #          - !GetAtt GeneratedEncryptionKey.Arn
+  #          - !Ref EncryptionKey
+  #        DBStorageType: !Ref DBStorageType
+  #        ExportPrefix: !Ref ExportPrefix
+  #        QSS3BucketName: !Ref QSS3BucketName
+  #        QSS3KeyPrefix: !Ref QSS3KeyPrefix
+  #  DBCname:
+  #    Condition: UseHostedZone
+  #    Type: AWS::Route53::RecordSet
+  #    Properties:
+  #      HostedZoneName: !Ref HostedZone
+  #      Comment: Route53 cname for the RDS
+  #      Name: !Join ['.', [!Ref 'AWS::StackName', 'db', !Ref 'HostedZone']]
+  #      Type: CNAME
+  #      TTL: '900'
+  #      ResourceRecords:
+  #        - !GetAtt DB.Outputs.RDSEndPointAddress
 
   # Loadbalancer
   LoadBalancer:
@@ -1290,9 +1300,9 @@ Resources:
           ToPort: 22
           CidrIp:
             !Sub
-              - "${BastionIp}/32"
-              - BastionIp:
-                  Fn::ImportValue: !Sub '${ExportPrefix}BastionPrivIp'
+            - "${BastionIp}/32"
+            - BastionIp:
+                Fn::ImportValue: !Sub '${ExportPrefix}BastionPrivIp'
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
@@ -1306,9 +1316,9 @@ Resources:
           ToPort: 80
           CidrIp:
             !Sub
-              - "${NAT1IP}/32"
-              - NAT1IP:
-                  Fn::ImportValue: !Sub '${ExportPrefix}NAT1EIP'
+            - "${NAT1IP}/32"
+            - NAT1IP:
+                Fn::ImportValue: !Sub '${ExportPrefix}NAT1EIP'
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
@@ -1389,21 +1399,21 @@ Resources:
       Type: String
       AllowedPattern: '^(latest)|([0-9a-f]{5,40})$'
       Value: "latest"
-      
+
   # Optional: Cloudwatch dashboard to be created when CloudWatch is enabled
-  CloudWatchDashboard:
-    DependsOn:
-      - DB
-    Condition: EnableCloudWatch
-    Type: AWS::CloudFormation::Stack
-    Properties:
-      TemplateURL: !Sub
-        - https://${QSS3BucketName}.${QSS3Region}.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-atlassian-services/templates/quickstart-cloudwatch-dashboard.yaml
-        - QSS3Region: !If ["GovCloudCondition", "s3-us-gov-west-1", "s3"]
-      Parameters:
-        ProductStackName: !Sub "${AWS::StackName}"
-        ProductFamilyName: "crowd"
-        AsgToMonitor: !Ref ClusterNodeGroup
+#  CloudWatchDashboard:
+#    DependsOn:
+#      - DB
+#    Condition: EnableCloudWatch
+#    Type: AWS::CloudFormation::Stack
+#    Properties:
+#      TemplateURL: !Sub
+#        - https://${QSS3BucketName}.${QSS3Region}.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-atlassian-services/templates/quickstart-cloudwatch-dashboard.yaml
+#        - QSS3Region: !If ["GovCloudCondition", "s3-us-gov-west-1", "s3"]
+#      Parameters:
+#        ProductStackName: !Sub "${AWS::StackName}"
+#        ProductFamilyName: "crowd"
+#        AsgToMonitor: !Ref ClusterNodeGroup
 
 Outputs:
   ServiceURL:
@@ -1439,13 +1449,13 @@ Outputs:
     Export: {
       Name: !Join ['', [!Ref 'AWS::StackName', '-SGname']]
     }
-  DBEndpointAddress:
-    Description: The Database Connection String
-    Value: !GetAtt DB.Outputs.RDSEndPointAddress
+  #  DBEndpointAddress:
+  #    Description: The Database Connection String
+  #    Value: !GetAtt DB.Outputs.RDSEndPointAddress
   StorageEncryptionKey:
     Condition: UseEncryption
     Description: The encryption key used for RDS and EFS encryption
-    Value: !If 
+    Value: !If
       - GenerateEncryptionKey
       - !Ref GeneratedEncryptionKey
       - !Ref EncryptionKey
@@ -1458,7 +1468,7 @@ Outputs:
     Export: {
       Name: !Join ['', [!Ref 'AWS::StackName', '-EFSCname']]
     }
-  CloudWatchDashboardURL:
-    Description: CloudWatch monitoring dashboard URL
-    Value: !GetAtt CloudWatchDashboard.Outputs.Dashboard
-    Condition: EnableCloudWatch
+#  CloudWatchDashboardURL:
+#    Description: CloudWatch monitoring dashboard URL
+#    Value: !GetAtt CloudWatchDashboard.Outputs.Dashboard
+#    Condition: EnableCloudWatch
