@@ -1,7 +1,11 @@
 [
     {
-        "ParameterKey": "InternetFacingLoadBalancer",
-        "ParameterValue": "true"
+        "ParameterKey": "BastionHostRequired",
+        "ParameterValue": "false"
+    },
+    {
+        "ParameterKey": "AvailabilityZones",
+        "ParameterValue": "$[taskcat_genaz_2]"
     },
     {
         "ParameterKey": "DBMasterUserPassword",
@@ -24,31 +28,27 @@
         "ParameterValue": "Provisioned IOPS"
     },
     {
-        "ParameterKey": "KeyPairName",
-        "ParameterValue": "replaced-by-taskcat-override-file"
+        "ParameterKey": "CustomDnsName",
+        "ParameterValue": "qscrowdci.awsqs.com"
     },
     {
-        "ParameterKey": "BastionHostRequired",
-        "ParameterValue": "false"
-    },
-    {
-        "ParameterKey": "CidrBlock",
-        "ParameterValue": "0.0.0.0/0"
-    },
-    {
-        "ParameterKey": "QSS3BucketName",
+        "ParameterKey":"QSS3BucketName",
         "ParameterValue": "$[taskcat_autobucket]"
     },
     {
-        "ParameterKey": "QSS3KeyPrefix",
+        "ParameterKey":"QSS3BucketRegion",
+        "ParameterValue": "us-east-1"
+    },
+    {
+        "ParameterKey":"QSS3KeyPrefix",
         "ParameterValue": "quickstart-atlassian-crowd/"
     },
     {
-        "ParameterKey": "ClusterNodeInstanceType",
-        "ParameterValue": "t3.medium"
+        "ParameterKey": "AccessCIDR",
+        "ParameterValue": "10.0.0.0/16"
     },
     {
-        "ParameterKey": "DBInstanceClass",
-        "ParameterValue": "db.t3.medium"
+        "ParameterKey": "KeyPairName",
+        "ParameterValue": "replaced-by-taskcat-override-file"
     }
 ]
