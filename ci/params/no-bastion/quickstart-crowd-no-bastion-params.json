@@ -53,6 +53,6 @@
     },
     {
         "ParameterKey": "ExportPrefix",
-        "ParameterValue": "CRWD001-"
+        "ParameterValue": "$[taskcat_genpass_8]"
     }
 ]
