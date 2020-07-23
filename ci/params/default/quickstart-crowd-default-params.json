@@ -41,7 +41,7 @@
     },
     {
         "ParameterKey":"QSS3BucketRegion",
-        "ParameterValue":"us-west-1"
+        "ParameterValue":"us-east-1"
     },
     {
         "ParameterKey": "QSS3KeyPrefix",
