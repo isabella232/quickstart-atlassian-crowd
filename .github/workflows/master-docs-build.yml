@@ -1,9 +1,7 @@
 name: main-documentation
 
-on:
-  push:
-    branches:
-    - develop
+on: [push]
+
 jobs:
   build-adocs:
     runs-on: ubuntu-18.04
