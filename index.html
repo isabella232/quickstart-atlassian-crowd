@@ -939,7 +939,7 @@ After you deploy the Quick Start, enable the <a href="https://docs.aws.amazon.co
 </div>
 <div id="architecture1" class="imageblock">
 <div class="content">
-<a class="image" href="https://docs.aws.amazon.com/quickstart/latest/linux-bastion/images/linux-bastion-hosts-on-aws-architecture.png"><img src="images/architecture_diagram.png" alt="Architecture" width="648" height="439"></a>
+<img src="images/architecture_diagram.png" alt="Architecture" width="640">
 </div>
 <div class="title">Figure 1. Quick Start architecture for <em>Crowd Data Center</em> on AWS</div>
 </div>
@@ -1272,7 +1272,7 @@ Certain regions are available on an opt-in basis. Refer to the AWS Documentation
 <p>The fastest way to use the Crowd Quick Start is to launch it directly from its Amazon S3 bucket. However, when you do, any updates we make to the Quick Start templates will propagate directly to your deployment. These updates sometimes involve adding or removing parameters, which could introduce unexpected (and possibly breaking) changes to your deployment.</p>
 </div>
 <div class="paragraph">
-<p>As such, or production environments, we recommend that you launch the Crowd Quick Start templates from a custom S3 bucket. Then, launch them directly from there. Launching from your own cloned Quick Start lets you control when to apply our latest changes to your environment.</p>
+<p>As such, on production environments, we recommend that you clone the Crowd Quick Start templates to a custom S3 bucket. Then, launch the templates directly from there. This lets you control when to apply our latest changes to your environment.</p>
 </div>
 <div class="olist arabic">
 <ol class="arabic">
@@ -1326,14 +1326,32 @@ Certain regions are available on an opt-in basis. Refer to the AWS Documentation
 <li>
 <p>In the template you’ve chosen, the <code>QSS3BucketName</code> default value is set to <code>aws-quickstart</code>. Replace this default with the name of the bucket you created earlier (<code>&lt;BUCKET_NAME&gt;</code>).</p>
 </li>
+<li>
+<p>Return to the parent directory of your <em>local</em> clone of the Quick Start templates. From there, upload all the files in your local clone to your S3 bucket:</p>
+<div class="listingblock">
+<div class="content">
+<pre>aws s3 cp quickstart-atlassian-crowd s3://&lt;BUCKET_NAME&gt; --recursive --acl public-read</pre>
+</div>
+</div>
+</li>
 </ol>
 </div>
 <div class="paragraph">
-<p>Once you’ve uploaded everything, you’re ready to deploy your production stack from your S3 bucket. Go to <strong>CloudFormation</strong> &gt; <strong>Create Stack</strong>. When specifying a template, paste in the Object URL of the Quick Start template you’ll be using. Choose <strong>Next</strong> to start configuring your deployment.</p>
+<p>Once you’ve uploaded everything, you’re ready to deploy your production stack from your S3 bucket.</p>
 </div>
-<div class="paragraph">
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Sign in to your AWS account on the <a href="https://console.aws.amazon.com/console/home">AWS Console</a>.</p>
+</li>
+<li>
+<p>Check the AWS Region displayed in the upper-right corner of the navigation bar, and change it if necessary. This is where {product-partner-name} will be built. The template is launched in the <code>us-east-1</code> Region by default.</p>
+</li>
+<li>
+<p>Go to <strong>CloudFormation</strong> &gt; <strong>Create Stack</strong>. When specifying a template, paste in the Object URL of the Quick Start template you’ll be using. Choose <strong>Next</strong> to start configuring your deployment.</p>
+</li>
+<li>
 <p>On the <strong>Specify stack</strong> details page, change the stack name if needed. Review the parameters for the template. Provide values for the parameters that require input. For all other parameters, review the default settings and customize them as necessary. For details about each setting, refer to the section matching your deployment type:</p>
-</div>
 <div class="ulist">
 <ul>
 <li>
@@ -1343,6 +1361,9 @@ Certain regions are available on an opt-in basis. Refer to the AWS Documentation
 <p><a href="#launch-into-an-existing-vpc">[launch-into-an-existing-vpc]</a> (if you&#8217;re deploying Crowd Data Center into a new ASI)</p>
 </li>
 </ul>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
@@ -2213,7 +2234,7 @@ Region', and 'Quick Start S3 key prefix', unless you are customizing the Quick S
 <p>== Configuring Crowd Data Center</p>
 </div>
 <div class="paragraph">
-<p>When you launch the Quick Start, it deploys a single Crowd node (Auto Scaling group of <code>min=1</code> and <code>max=1</code>). The following procedure will focus on setting up a brand new Crowd Data Center deployment.</p>
+<p>The following procedure will focus on setting up your brand new Crowd Data Center deployment.</p>
 </div>
 <div class="olist arabic">
 <ol class="arabic">
@@ -2236,16 +2257,18 @@ If you get an <a href="https://confluence.atlassian.com/kb/network-and-connectiv
 <p>On the License page, enter a valid Crowd Data Center license key. If you don’t have a valid license, click on the <a href="https://my.atlassian.com/products/index">My Atlassian</a> link and sign up for an evaluation Data Center license (you’ll be required to log in to your Atlassian account).</p>
 <div class="imageblock">
 <div class="content">
-<img src="images/qs-crowd-license.png" alt="qs crowd license">
+<img src="images/qs-crowd-license.png" alt="License" width="640">
 </div>
+<div class="title">Figure 3. Crowd licensing</div>
 </div>
 </li>
 <li>
 <p>On the Crowd installation screen, select New installation to continue setting up a new Crowd Data Center deployment.</p>
 <div class="imageblock">
 <div class="content">
-<img src="images/qs-crowd-new-install.png" alt="qs crowd new install">
+<img src="images/qs-crowd-new-install.png" alt="New install" width="640">
 </div>
+<div class="title">Figure 4. New Crowd installation</div>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -2266,6 +2289,7 @@ From this screen, you can also select <strong>Import data from an XML backup</st
 <div class="content">
 <img src="images/qs-crowd-dbconfig.png" alt="qs crowd dbconfig">
 </div>
+<div class="title">Figure 5. Crowd database configuration</div>
 </div>
 </li>
 <li>
@@ -2274,6 +2298,7 @@ From this screen, you can also select <strong>Import data from an XML backup</st
 <div class="content">
 <img src="images/qs-crowd-options.png" alt="qs crowd options">
 </div>
+<div class="title">Figure 6. Crowd options</div>
 </div>
 </li>
 <li>
@@ -2282,6 +2307,7 @@ From this screen, you can also select <strong>Import data from an XML backup</st
 <div class="content">
 <img src="images/qs-internal-directory.png" alt="qs internal directory">
 </div>
+<div class="title">Figure 7. Crowd internal directory</div>
 </div>
 </li>
 <li>
@@ -2290,6 +2316,7 @@ From this screen, you can also select <strong>Import data from an XML backup</st
 <div class="content">
 <img src="images/qs-crowd-first-admin.png" alt="qs crowd first admin">
 </div>
+<div class="title">Figure 8. Crowd default administrator</div>
 </div>
 </li>
 <li>
@@ -2298,6 +2325,7 @@ From this screen, you can also select <strong>Import data from an XML backup</st
 <div class="content">
 <img src="images/qs-crowd-intergratedapps.png" alt="qs crowd intergratedapps">
 </div>
+<div class="title">Figure 9. Crowd integrated apps</div>
 </div>
 </li>
 <li>
@@ -2306,6 +2334,7 @@ From this screen, you can also select <strong>Import data from an XML backup</st
 <div class="content">
 <img src="images/qs-crowd-login.png" alt="qs crowd login">
 </div>
+<div class="title">Figure 10. Crowd login</div>
 </div>
 </li>
 <li>
@@ -2314,12 +2343,16 @@ From this screen, you can also select <strong>Import data from an XML backup</st
 <div class="content">
 <img src="images/qs-crowd-clustering.png" alt="qs crowd clustering">
 </div>
+<div class="title">Figure 11. Clustering (single node)</div>
 </div>
 </li>
 </ol>
 </div>
 <div class="paragraph">
-<p>== Adding nodes to the Crowd Data Center cluster</p>
+<p>=== Adding nodes to the Crowd Data Center cluster</p>
+</div>
+<div class="paragraph">
+<p>By default, your Quick Start deployment will start with a single Crowd node (Auto Scaling group of <code>min=1</code> and <code>max=1</code>). Once you&#8217;re ready to add nodes to your cluster, perform the following steps:</p>
 </div>
 <div class="olist arabic">
 <ol class="arabic">
@@ -2341,6 +2374,7 @@ From this screen, you can also select <strong>Import data from an XML backup</st
 <div class="content">
 <img src="images/qs-crowd-clustering-multi.png" alt="qs crowd clustering multi">
 </div>
+<div class="title">Figure 12. Clustering (multiple nodes)</div>
 </div>
 </li>
 </ol>
@@ -2429,7 +2463,7 @@ and to share your customizations with others.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2020-07-24 04:04:48 UTC
+Last updated 2020-07-24 04:16:31 UTC
 </div>
 </div>
 </body>
