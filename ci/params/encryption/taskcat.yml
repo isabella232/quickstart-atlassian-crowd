@@ -1,0 +1,14 @@
+---
+global:
+  marketplace-ami: false
+  owner: dc-deployments-syd@atlassian.com
+  qsname: quickstart-atlassian-crowd
+  regions:
+    - us-east-1
+    - ap-southeast-2
+  reporting: true
+
+tests:
+  crowd:
+    parameter_input: params/encryption/quickstart-crowd-encryption-params.json
+    template_file: quickstart-crowd-dc.template.yaml

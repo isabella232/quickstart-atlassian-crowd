@@ -10,3 +10,7 @@ tests:
   crowd:
     parameter_input: quickstart-crowd-dc-params.json
     template_file: quickstart-crowd-dc-with-vpc.template.yaml
+
+  # crowd-encrypted:
+  #   parameter_input: quickstart-crowd-dc-params-encrypted.json
+  #   template_file: quickstart-crowd-dc-with-vpc.template.yaml
