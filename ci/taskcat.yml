@@ -3,10 +3,14 @@ global:
   owner: quickstart-eng@amazon.com
   qsname: quickstart-atlassian-crowd
   regions:
-    - us-east-1 
+    - us-east-2
   reporting: true
 
 tests:
   crowd:
     parameter_input: quickstart-crowd-dc-params.json
+    template_file: quickstart-crowd-dc-with-vpc.template.yaml
+
+  crowd-not-encrypted:
+    parameter_input: quickstart-crowd-dc-not-encrypted-params.json
     template_file: quickstart-crowd-dc-with-vpc.template.yaml

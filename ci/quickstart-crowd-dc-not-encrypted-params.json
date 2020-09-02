@@ -49,6 +49,10 @@
     },
     {
         "ParameterKey": "ExportPrefix",
-        "ParameterValue": "TASI"
+        "ParameterValue": "SASI"
+    },
+    {
+        "ParameterKey": "EncryptionAtRest",
+        "ParameterValue": "false"
     }
 ]

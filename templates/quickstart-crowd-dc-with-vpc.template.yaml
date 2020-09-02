@@ -27,6 +27,7 @@ Metadata:
           - DeploymentAutomationPlaybook
           - DeploymentAutomationKeyName
           - DeploymentAutomationCustomParams
+          - EncryptionAtRest
       - Label:
           default: Database
         Parameters:
@@ -36,7 +37,6 @@ Metadata:
           - DBMultiAZ
           - DBPassword
           - DBStorage
-          - DBStorageEncrypted
           - DBStorageType
       - Label:
           default: Bastion host provisioning
@@ -116,8 +116,6 @@ Metadata:
         default: Application user database password *
       DBStorage:
         default: Database storage
-      DBStorageEncrypted:
-        default: Database encryption
       DBStorageType:
         default: Database storage type
       DeploymentAutomationRepository:
@@ -130,6 +128,8 @@ Metadata:
         default: SSH key name to use with repository
       DeploymentAutomationCustomParams:
         default: Custom command-line parameters for Ansible
+      EncryptionAtRest:
+        default: Database and filesystem encryption
       ExportPrefix:
         default: ASI identifier
       HostedZone:
@@ -394,12 +394,12 @@ Parameters:
     Default: 200
     Description: Database allocated storage size, in gigabytes (GB). If you choose Provisioned IOPS, storage should be between 100 and 6144 GB.
     Type: Number
-  DBStorageEncrypted:
-    Default: "false"
+  EncryptionAtRest:
+    Default: "true"
     AllowedValues:
       - "true"
       - "false"
-    Description: Whether or not to encrypt the database.
+    Description: Whether or not to encrypt the database and filesystems.
     Type: String
   DBStorageType:
     Default: General Purpose (SSD)
@@ -601,8 +601,8 @@ Parameters:
     Type: String
 
 Conditions:
-  UseDatabaseEncryption:
-    !Equals [!Ref DBStorageEncrypted, true]
+  UseEncryption:
+    !Equals [!Ref EncryptionAtRest, true]
   UsingDefaultBucket: 
     !Equals [!Ref QSS3BucketName, 'aws-quickstart']
   KeyProvided:
@@ -645,6 +645,7 @@ Resources:
         - S3Bucket: !If [UsingDefaultBucket, !Sub '${QSS3BucketName}-${AWS::Region}', !Ref QSS3BucketName]
           S3Region: !If [UsingDefaultBucket, !Ref 'AWS::Region', !Ref QSS3BucketRegion]
       Parameters:
+        BastionHostRequired: !Ref 'BastionHostRequired'
         CatalinaOpts: !Ref 'CatalinaOpts'
         CidrBlock: !Ref 'AccessCIDR'
         CloudWatchIntegration: !Ref 'CloudWatchIntegration'
@@ -660,7 +661,6 @@ Resources:
         DBMultiAZ: !Ref 'DBMultiAZ'
         DBPassword: !Ref 'DBPassword'
         DBStorage: !Ref 'DBStorage'
-        DBStorageEncrypted: !Ref 'DBStorageEncrypted'
         DBStorageType: !Ref 'DBStorageType'
         DeploymentAutomationRepository: !Ref 'DeploymentAutomationRepository'
         DeploymentAutomationBranch: !Ref 'DeploymentAutomationBranch'
@@ -678,6 +678,7 @@ Resources:
         QSS3KeyPrefix: !Ref 'QSS3KeyPrefix'
         QSS3BucketRegion: !Ref 'QSS3BucketRegion'
         SSLCertificateARN: !Ref 'SSLCertificateARN'
+        EncryptionAtRest: !Ref 'EncryptionAtRest'
         TomcatAcceptCount: !Ref 'TomcatAcceptCount'
         TomcatConnectionTimeout: !Ref 'TomcatConnectionTimeout'
         TomcatContextPath: !Ref 'TomcatContextPath'
@@ -687,7 +688,6 @@ Resources:
         TomcatMinSpareThreads: !Ref 'TomcatMinSpareThreads'
         TomcatProtocol: !Ref 'TomcatProtocol'
         TomcatRedirectPort: !Ref 'TomcatRedirectPort'
-        BastionHostRequired: !Ref 'BastionHostRequired'
 
 Outputs:
   ServiceURL:
@@ -706,10 +706,10 @@ Outputs:
   DBEndpointAddress:
     Description: The database connection string.
     Value: !GetAtt 'CrowdDCStack.Outputs.DBEndpointAddress'
-  DBEncryptionKey:
-    Condition: UseDatabaseEncryption
-    Description: The alias of the encryption key created for Amazon RDS.
-    Value: !GetAtt 'CrowdDCStack.Outputs.DBEncryptionKey'
+  EncryptionKey:
+    Condition: UseEncryption
+    Description: The alias of the encryption key created for Amazon RDS and EFS.
+    Value: !GetAtt 'CrowdDCStack.Outputs.EncryptionKey'
   EFSCname:
     Description: The CNAME of the Amazon Elastic File System (Amazon EFS).
     Value: !GetAtt 'CrowdDCStack.Outputs.EFSCname'
