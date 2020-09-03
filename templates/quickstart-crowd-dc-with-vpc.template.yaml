@@ -27,7 +27,6 @@ Metadata:
           - DeploymentAutomationPlaybook
           - DeploymentAutomationKeyName
           - DeploymentAutomationCustomParams
-          - EncryptionAtRest
       - Label:
           default: Database
         Parameters:
@@ -39,21 +38,22 @@ Metadata:
           - DBStorage
           - DBStorageType
       - Label:
-          default: Bastion host provisioning
+          default: Security
         Parameters:
+          - AccessCIDR
+          - EncryptionAtRest
+          - SSLCertificateARN
           - BastionHostRequired
           - KeyPairName
       - Label:
           default: Networking
         Parameters:
-          - AccessCIDR
           - AvailabilityZones
           - InternetFacingLoadBalancer
           - PrivateSubnet1CIDR
           - PrivateSubnet2CIDR
           - PublicSubnet1CIDR
           - PublicSubnet2CIDR
-          - SSLCertificateARN
           - VPCCIDR
       - Label:
           default: DNS (Optional)
